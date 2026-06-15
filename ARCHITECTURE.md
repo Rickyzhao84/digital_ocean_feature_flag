@@ -7,77 +7,41 @@ This document describes the architecture of the Feature Flag Service, a producti
 ## Request Lifecycle Flow
 
 ```
-┌─────────────┐
-│   Client    │
-└──────┬──────┘
-       │ HTTP Request
-       │ (POST /evaluate or CRUD)
-       ▼
-┌──────────────────────────────────────────┐
-│      FastAPI Route Handler              │
-│  (routes/flags.py)                      │
-│  - Request validation (Pydantic)        │
-│  - Authorization checks                 │
-└──────────┬──────────────────────────────┘
-           │
-           ▼
-┌──────────────────────────────────────────┐
-│    Service Layer                           │
-│  (services/flag_service.py or             │
-│   services/evaluator.py)                  │
-│  - Business logic                          │
-│  - Input validation                        │
-│  - Exception handling                      │
-└──────────┬──────────────────────────────┘
-           │
-           ├─────────────────┬──────────────────┐
-           │                 │                  │
-  (for create/update/delete) │           (for evaluate)
-           │                 │                  │
-           ▼                 ▼                  ▼
-    ┌────────────┐    ┌──────────────┐   ┌──────────────┐
-    │ Database   │    │  Cache Layer │   │  Evaluator   │
-    │ (SQLModel) │    │  (FlagCache) │   │  Logic       │
-    └────────────┘    └──────────────┘   └────┬─────────┘
-           │                │                   │
-           │         cache hit? ←──────────────┤
-           │                │                   │
-           │                No                  │
-           │                │                   │
-           └────────────────┼───────────────────┤
-                            │                   │
-                            Load from DB ──────┘
-                            │
-                            ▼
-                      ┌──────────────┐
-                      │  Evaluation  │
-                      │  Algorithm   │
-                      │  - Filter by │
-                      │    priority  │
-                      │  - Match     │
-                      │    rules     │
-                      │  - Return    │
-                      │    value &   │
-                      │    reason    │
-                      └──────┬───────┘
-                             │
-                             ▼
-                      ┌──────────────┐
-                      │ Store result │
-                      │ in cache     │
-                      └──────┬───────┘
-                             │
-                             ▼
-┌──────────────────────────────────────┐
-│  HTTP Response (JSON)                  │
-│  - Status code                         │
-│  - Response body                       │
-└──────────────────────────────────────┘
-       │
-       ▼
-┌─────────────┐
-│   Client    │
-└─────────────┘
+Client (POST /flags + Bearer token)
+         │
+         ▼
+┌─────────────────────────┐
+│       Auth check        │──── fail ──▶ 401 / 403
+│  Verify JWT, admin scope│
+└─────────────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│   Schema validation     │──── fail ──▶ 422
+│  Pydantic / FlagCreate  │
+└─────────────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│         Router          │
+│  calls create_flag()    │
+└─────────────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│         Service         │──── fail ──▶ 400 / 500
+│  validate, serialize,   │
+│  save to DB             │
+└─────────────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│        Database         │
+│  INSERT INTO featureflag│
+└─────────────────────────┘
+         │
+         ▼
+  200 OK — FlagOut JSON
 ```
 
 ## Component Architecture

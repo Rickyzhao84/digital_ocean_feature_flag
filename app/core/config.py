@@ -3,6 +3,10 @@ from pydantic import BaseSettings, root_validator, validator
 from urllib.parse import quote_plus
 from typing import Optional
 
+#TODO: get_settings() returns a fresh Settings() instance on every call. 
+# Every request that hits a protected route calls get_settings() twice 
+# (once in create_access_token or get_current_admin), 
+# which re-reads env vars each time. Cache it
 
 class Settings(BaseSettings):
     # Postgres connection components: supply via environment or .env
@@ -26,7 +30,7 @@ class Settings(BaseSettings):
         env_file = ".env"
 
     # JWT secret used for admin tokens (must be provided in prod)
-    JWT_SECRET: Optional[str] = None
+    JWT_SECRET: Optional[str]
 
     @validator("DATABASE_URL", pre=True, always=True)
     def validate_database_url(cls, v, values):
