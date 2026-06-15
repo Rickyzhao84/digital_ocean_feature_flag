@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.routes import flags
 from app.db.session import init_db
+from app.core.logger import app_logger
 
 app = FastAPI(title="Feature Flag Service")
 
@@ -33,4 +34,6 @@ app.include_router(flags.router)
 
 @app.on_event("startup")
 def on_startup():
+    app_logger.info("Starting Feature Flag Service")
     init_db()
+    app_logger.info("Database initialized")
