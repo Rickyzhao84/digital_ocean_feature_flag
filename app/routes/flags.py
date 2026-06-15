@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
+from typing import List
 from app.schemas.flag import FlagCreate, FlagOut, EvalRequest, EvalResponse
 from app.services.evaluator import Evaluator
 from app.services.flag_service import FlagService
@@ -9,8 +10,16 @@ evaluator = Evaluator()
 flag_service = FlagService()
 
 
+@router.get("/flags", response_model=List[FlagOut])
+def list_flags():
+    """List all feature flags"""
+    flags = flag_service.list_flags()
+    return [FlagOut(name=flag.name, default=flag.default, rules=flag.rules) for flag in flags]
+
+
 @router.post("/flags", response_model=FlagOut)
 def create_flag(payload: FlagCreate, admin=Depends(get_current_admin)):
+    """Create a new feature flag (requires admin)"""
     try:
         flag = flag_service.create_flag(payload)
         return FlagOut(name=flag.name, default=flag.default, rules=flag.rules)
@@ -20,6 +29,7 @@ def create_flag(payload: FlagCreate, admin=Depends(get_current_admin)):
 
 @router.get("/flags/{name}", response_model=FlagOut)
 def get_flag(name: str):
+    """Get a specific feature flag"""
     flag = flag_service.get_flag(name)
     if not flag:
         raise HTTPException(status_code=404, detail="Flag not found")
@@ -28,6 +38,7 @@ def get_flag(name: str):
 
 @router.put("/flags/{name}", response_model=FlagOut)
 def update_flag(name: str, payload: FlagCreate, admin=Depends(get_current_admin)):
+    """Update a feature flag (requires admin)"""
     try:
         flag = flag_service.update_flag(name, payload)
         evaluator.invalidate_flag(name)
@@ -38,6 +49,7 @@ def update_flag(name: str, payload: FlagCreate, admin=Depends(get_current_admin)
 
 @router.delete("/flags/{name}")
 def delete_flag(name: str, admin=Depends(get_current_admin)):
+    """Delete a feature flag (requires admin)"""
     try:
         flag_service.delete_flag(name)
         evaluator.invalidate_flag(name)
@@ -48,5 +60,6 @@ def delete_flag(name: str, admin=Depends(get_current_admin)):
 
 @router.post("/evaluate", response_model=EvalResponse)
 def evaluate(req: EvalRequest):
+    """Evaluate a feature flag based on user context"""
     result = evaluator.evaluate(req.flag, req.context)
     return EvalResponse(flag=req.flag, value=result["value"], reason=result.get("reason"))
