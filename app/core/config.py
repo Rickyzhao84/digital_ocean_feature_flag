@@ -1,5 +1,5 @@
 # ...existing code...
-from pydantic import BaseSettings, root_validator
+from pydantic import BaseSettings, root_validator, validator
 from urllib.parse import quote_plus
 from typing import Optional
 
@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     # JWT secret used for admin tokens (must be provided in prod)
     JWT_SECRET: Optional[str] = None
 
+    @validator("DATABASE_URL", pre=True, always=True)
+    def validate_database_url(cls, v, values):
+        # Skip template strings from DigitalOcean
+        if v and v.startswith("${"):
+            return None
+        return v
+
     @root_validator(pre=True)
     def build_database_url(cls, values):
         # If a full DATABASE_URL is not provided, attempt to build it from components
@@ -46,4 +53,3 @@ class Settings(BaseSettings):
 
 def get_settings() -> Settings:
     return Settings()
-# ...existing code...
