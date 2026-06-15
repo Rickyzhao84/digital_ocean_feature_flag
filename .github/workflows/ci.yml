@@ -1,11 +1,17 @@
 name: CI
-
+ 
 on:
+  #Theoretically this should run on feature branch only.
+  # push:
+  #   branches-ignore:
+  #     - main
+  # pull_request:
+  #   branches-ignore:
+  #     - main
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
+    branches:
+      - main
+ 
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -20,5 +26,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Run tests
+        -env:
+          JWT_SECRET: 'no_time_should_be_added_to_do_secret'
         run: |
           pytest -q

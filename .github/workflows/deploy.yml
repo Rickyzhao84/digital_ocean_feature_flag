@@ -1,0 +1,42 @@
+name: Deploy
+
+on:
+  #Theoretically this would run on merge to main branch, 
+  #but in this case we will trigger it manually to avoid unnecessary deploys during development.
+  # push:
+  #   branches:
+  #     - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests before deploy
+        -env:
+          JWT_SECRET: 'no_time_should_be_added_to_do_secret'
+        run: |
+          pytest -q
+
+      - name: Deploy to DigitalOcean App Platform
+        env:
+          DO_API_TOKEN: ${{ secrets.DO_API_TOKEN }}
+          DO_APP_ID: ${{ secrets.DO_APP_ID }}
+        run: |
+          curl -s -X POST \
+            -H "Authorization: Bearer $DO_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://api.digitalocean.com/v2/apps/$DO_APP_ID/deployments" \
+            | jq '.deployment.id'
