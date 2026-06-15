@@ -27,10 +27,12 @@ class FlagService:
             )
 
     def _serialize_rules(self, rules: list) -> list:
-        """Serialize rule objects into dictionaries for storage."""
         serialized = []
         for rule in rules:
-            rule_dict = rule.model_dump() if hasattr(rule, "model_dump") else rule
+            if hasattr(rule, "model_dump"):
+                rule_dict = rule.model_dump(mode="json")
+            else:
+                rule_dict = rule
             serialized.append(rule_dict)
         return serialized
 
